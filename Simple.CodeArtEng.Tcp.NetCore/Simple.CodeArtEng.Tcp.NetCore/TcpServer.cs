@@ -328,6 +328,11 @@ namespace CodeArtEng.Tcp
         private string Message;
         private List<byte> MessageBuffer;
 
+
+        public string Identifier { get; private set; }
+
+        public object Data { get; set; }
+
         /// <summary>
         /// IP address for connected client.
         /// </summary>
@@ -370,6 +375,9 @@ namespace CodeArtEng.Tcp
             Client = client;
             BufferSize = Client.ReceiveBufferSize;
             TcpStream = Client.GetStream();
+
+
+            Identifier = Guid.NewGuid().ToString();
 
             ClientIPAddress = ((IPEndPoint)Client.Client.RemoteEndPoint).Address;
             ClientPort = ((IPEndPoint)Client.Client.RemoteEndPoint).Port;
