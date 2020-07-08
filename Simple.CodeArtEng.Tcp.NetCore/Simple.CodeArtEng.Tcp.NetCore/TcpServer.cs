@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 
@@ -226,16 +230,36 @@ namespace CodeArtEng.Tcp
                     {
                         System.Net.Sockets.TcpClient client = listener.AcceptTcpClient();
 
+                        var stream = client.GetStream();
+
+                        byte[] wsData = null;
+
+                        Thread.Sleep(10); // 停10ms，否则获取握手时数据有可能取不到
+
+                        if (stream.DataAvailable)
+                        {
+                            var buffer = new byte[client.ReceiveBufferSize];
+                            var factLen = stream.Read(buffer, 0, buffer.Length);
+                            wsData = new byte[factLen];
+                            Array.Copy(buffer, wsData, factLen);
+                        }
+
                         Trace.WriteLine(Name + ": New Connection Detected...");
                         TcpServerConnectEventArgs eArgs = new TcpServerConnectEventArgs() { Client = client };
+
                         ClientConnecting?.Invoke(this, eArgs);
+
 
                         if (eArgs.Accept)
                         {
                             //Connection Accepted
-                            TcpServerConnection newConnection = new TcpServerConnection(this, client);
-                            newConnection.MessageDelimiter = MessageDelimiter;
+                            TcpServerConnection newConnection = new TcpServerConnection(this, client)
+                            {
+                                MessageDelimiter = MessageDelimiter,
+                                WsData = wsData
+                            };
                             Trace.WriteLine(Name + ": Connection Accepted: Client = " + newConnection.ClientIPAddress);
+
                             newConnection.ClientDisconnected += OnClientDisconnected;
                             lock (ActiveConnections) { ActiveConnections.Add(newConnection); }
                             ClientConnected?.Invoke(this, new TcpServerEventArgs() { Client = newConnection });
@@ -331,7 +355,10 @@ namespace CodeArtEng.Tcp
 
         public string Identifier { get; private set; }
 
-        public object Data { get; set; }
+        /// <summary>
+        /// 握手时传递的数据
+        /// </summary>
+        public byte[] WsData { get; internal set; }
 
         /// <summary>
         /// IP address for connected client.
